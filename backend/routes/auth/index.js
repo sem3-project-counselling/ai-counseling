@@ -1,4 +1,3 @@
-// backend/routes/auth/index.js
 const express = require('express');
 const router = express.Router();
 
@@ -8,5 +7,8 @@ router.use('/logout', require('./logout'));
 router.use('/reset-password', require('./resetPassword'));
 router.use('/delete-user', require('./deleteUser'));
 router.use('/list-users', require('./listUsers'));
+router.use('/verify-token', require('./verify-token'));
+router.use('/user', require('./user'));
+
 
 module.exports = router;

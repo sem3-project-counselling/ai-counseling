@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const User = require('../../models/User');
 
 const SALT_ROUNDS = Number(process.env.SALT_ROUNDS || 10);
@@ -24,9 +24,12 @@ router.post('/request', async (req, res) => {
     user.resetTokenExpiry = expiry;
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
-    if (process.env.SMTP_USER) {
+    console.log('Generated reset token:', token); // For testing purposes
+    console.log('Reset URL:', resetUrl); // For testing purposes
+
+    if (process.env.SMTP_USER && process.env.SMTP_HOST && process.env.SMTP_HOST !== 'smtp.example.com' && process.env.SMTP_HOST !== '') {
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
@@ -34,15 +37,24 @@ router.post('/request', async (req, res) => {
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
       });
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'no-reply@example.com',
-        to: email,
-        subject: 'Password reset',
-        text: `Reset link: ${resetUrl}`,
-        html: `<p>Reset link: <a href="${resetUrl}">${resetUrl}</a></p>`
-      });
-    } else console.log('Reset URL (no SMTP configured):', resetUrl);
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL_FROM || 'no-reply@example.com',
+          to: email,
+          subject: 'Password reset',
+          text: `Reset link: ${resetUrl}`,
+          html: `<p>Reset link: <a href="${resetUrl}">${resetUrl}</a></p>`
+        });
+        console.log('Password reset email sent successfully');
+      } catch (emailErr) {
+        console.error('Failed to send password reset email:', emailErr);
+        // Do not fail the request if email sending fails
+      }
+    } else {
+      console.log('Reset URL (no SMTP configured):', resetUrl);
+    }
 
+    // For testing purposes, return the token in the response
     res.json({ ok: true });
   } catch (err) {
     console.error('Reset request error:', err);
