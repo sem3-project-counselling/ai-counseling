@@ -1,5 +1,5 @@
-import express from "express";
-import fetch from "node-fetch";
+const express = require('express');
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const router = express.Router();
 
@@ -13,6 +13,18 @@ router.post("/", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   try {
+    // Pre-check if Ollama service is running
+    const healthCheck = await fetch("http://localhost:11434/api/tags", {
+      method: "GET",
+    });
+
+    if (!healthCheck.ok) {
+      res.write("data: Ollama service is not running. Please start Ollama and ensure the llama3 model is available.\n\n");
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
     // Call Ollama local model API
     const response = await fetch("http://localhost:11434/api/generate", {
       method: "POST",
@@ -25,7 +37,18 @@ router.post("/", async (req, res) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
+      let errorMessage = "An error occurred while processing your request.";
+      if (response.status === 500) {
+        errorMessage = "Internal server error from Ollama. Please check the model and try again.";
+      } else if (response.status === 404) {
+        errorMessage = "Model not found. Ensure llama3 is installed.";
+      } else {
+        errorMessage = `Ollama API error: ${response.status}`;
+      }
+      res.write(`data: ${errorMessage}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
     }
 
     // Stream Ollama’s response to the frontend
@@ -53,4 +76,4 @@ router.post("/", async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

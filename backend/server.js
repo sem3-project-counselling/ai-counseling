@@ -49,47 +49,8 @@ try {
 // =====================================
 // 🧠 AI Counselling Stream Route
 // =====================================
-app.post('/api/ai/ask', async (req, res) => {
-  const { question } = req.body;
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  try {
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3',
-        prompt: `You are an empathetic AI career counsellor.\nUser asked: ${question}`,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Ollama API error: ${response.status}`);
-
-    for await (const chunk of response.body) {
-      const text = chunk.toString();
-      const lines = text.trim().split('\n');
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          if (data.response) res.write(`data: ${data.response}\n\n`);
-        } catch {
-          // ignore invalid lines
-        }
-      }
-    }
-
-    res.write('data: [DONE]\n\n');
-    res.end();
-  } catch (err) {
-    console.error('Streaming error:', err.message);
-    res.write('data: [ERROR]\n\n');
-    res.end();
-  }
-});
+const counsellingRouter = require('./ai/counselling');
+app.use('/api/ai', counsellingRouter);
 
 // ==============================
 // 🩺 Health
